@@ -1,0 +1,9 @@
+# for copyright
+*/refs/*
+
+# aux files
+.Rproj.user
+.Rhistory
+.idea
+.ipynb_checkpoints
+.Rapp.history
