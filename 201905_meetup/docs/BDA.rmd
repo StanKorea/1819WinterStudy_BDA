@@ -1,8 +1,8 @@
 ---
-title: "BDA"
-subtitle: "Bayesian Data Analysys"
+title: "BDA Part1, 2, 3"
+subtitle: "Bayesian Data Analysis"
 date: "May 22, 2019"
-author: "문현지, 이경원, 임정욱, 장헌우"
+author: "Hyunji Moon, Kyeongwon Lee, JungWook Lim, Heonwoo Jang "
 output: 
   # revealjs::revealjs_presentation:
   #   self_contained: false
@@ -97,9 +97,16 @@ $$
   p(\theta|\alpha, \beta) &= \prod_{j=1}^N p(\theta_j|\alpha, \beta), \\
   \alpha = \kappa& \phi, \quad \beta = \kappa (1-\phi), \\
   p(\phi) &= \unif(\phi|0, 1), \\
-  p(\kappa) &= \textrm{Pareto}(\kappa|1, 0.5) \propto \kappa^{-1.5}.
+  p(\kappa) &= \textrm{Pareto}(\kappa|1, 0.5) \propto \kappa^{-1.5} \\
 \end{align*}
 $$
+$$
+\begin{align*}
+\kappa = \alpha + \beta, \\
+\phi = \alpha / \beta \\
+\end{align*}
+$$
+
 
 #### Log Odds of Tumor Incidence Rates (BDA 5.4)
 
@@ -124,7 +131,7 @@ load("../src/fits_stan.Rdata")
 > Convergence check is done only for the hierarchical model as an example.
 
 ### Diagnostics for Convergence
-> After checking for covergence with traceplot and acf plot (details in Computation (Part3), fitted models can directly used for inferences about the parameters such as $\phi$,$\kappa$, $\theta$, $\alpha$, $\beta$, and any other quantities of interest. Judging by the following plots, it seems the model converged well, so we proceed to the inference! Note that the following inference is generated from parameters' posterior distribution.
+> After checking for covergence with traceplot and acf plot, details in Computation (Part3), fitted models can directly used for inferences about the parameters such as $\phi$, $\kappa$, $\theta$, $\alpha$, $\beta$, and any other quantities of interest. Judging by the following plots, it seems the model converged well, so we proceed to the inference! Note that all the following inferences are based on samples generated from parameters' posterior distribution.
 
 Trace Plot
 
@@ -154,7 +161,7 @@ hyperparam <- fit_ss %>%
   data.frame() %>%
   select("phi", "kappa") %>%
   transmute(alpha = kappa * phi, beta = kappa*(1-phi))
-# log(alpha/beta ) vs log(alpha + beta)
+
 hyperparam %>%
   mutate(id = row_number()) %>%
   ggplot(aes(x = log(alpha/ beta), y =log(alpha + beta))) +
@@ -167,39 +174,35 @@ Note that above plot is similar to figure 5.3 in BDA
 ![](../figs/fig_5_3.png)
 
 ### Customized Inference
-> In addition to the inference on parameters, we can also infer the quantities of interest. In Stan,this can be implemented by declaring quantities of interest in "generated quantities" block [link](https://mc-stan.org/docs/2_18/reference-manual/program-block-generated-quantities.html). Stan automatically provides full Bayesian inference by producing draws from the posterior distribution of any calculated event probabilities, predictions, or statistics. 
-Different quantities of interest have been declared in our 4 models:
-for example, posterior p-val for max, mean, sd test, $\theta_1$, $\theta33$, $\theta_54$, $\theta_71$, probability of any $\theta$ > 0.35 for pooled model
+> In addition to the inference on parameters, we can also infer the quantities of interest. In Stan, this can be implemented by declaring quantities of interest in ["generated quantities" block](https://mc-stan.org/docs/2_18/reference-manual/program-block-generated-quantities.html). Stan automatically provides full Bayesian inference by producing draws from the posterior distribution of any calculated event probabilities, predictions, or statistics. 
+Different quantities of interest have been declared in our 4 models: e.g for pooled model, posterior p-val for max, mean test, $\theta_{1}$, $\theta_{33}$, $\theta_{54}$, $\theta_{71}$, and probability of any $\theta$ greater than 0.35 is declared and retrieved.
 
 ```{r}
-pars_to_print <- c("p_max", "p_mean", "p_sd",
+pars_to_print <- c("p_max", "p_mean",
                    "theta[1]", "theta[33]", "theta[54]", "theta[71]",
                    "some_ability_gt_350");
-pars_to_print2 <- c(pars_to_print,
-                    "is_best[1]", "is_best[33]", "is_best[55]", "is_best[71]");
 ```
 
-Inference for No pooling model:
+Inference for Complete Pooling model:
 ```{r}
-print(fit_rats_pool, c(pars_to_print));
+print(fit_rats_pool, pars_to_print);
 ```
 
 Inference for No pooling model:
 ```{r }
-print(fit_rats_no_pool, pars_to_print2);
+print(fit_rats_no_pool, pars_to_print);
 ```
 
 Inference for hierarchical models:
 ```{r }
-print(fit_rats_hier, c(pars_to_print2, "phi", "kappa"));
-print(fit_rats_hier_logit, c(pars_to_print2, "mu", "sigma"))
+print(fit_rats_hier, c("phi", "kappa"));
+print(fit_rats_hier_logit, c("mu", "sigma"))
 ```
-
 
 # Data Analysis
 
-## Model Checking (Posterior p-values)
-> Bayesian p-value has a direct definition as a probability which can be approximated using Monte Carlo methods
+## Model Checking (Bayesian p-values)
+> Bayesian p-value(i.e.Posterior predictive p-values) has a direct definition as a probability which can be approximated using Monte Carlo methods
 
 $$
 \begin{equation}
@@ -213,11 +216,11 @@ p_{B} \approx \frac{1}{M} \sum_{m=1}^{M} \mathrm{I}\left[T\left(y^{\mathrm{rep}(
 \end{equation}
 $$
 
-> We generate a Bayesian p value by comparing the simulated data test statistic with its value on the actual data.Unlike Frequentist p values, the test statistics is not conditioned on point estimated θ. Instead, variation in accordance with the posterior distribution is allowed.
+> We generate a Bayesian p-value by comparing the simulated data test statistic with its value on the actual data. Unlike Frequentist p-values, the test statistics is not conditioned on point estimated θ. Instead, variation in accordance with the posterior distribution is allowed.
 It is a measure of model (mis)fit, and values near 0 or 1 indicate a discrepancy between the model and the data.
 
 ```{r posterior predictive p-values}
-pars_ppp <- c("p_max", "p_mean", "p_sd", "p_min")
+pars_ppp <- c("p_max", "p_mean", "p_min")
 (ppp_pool <- summary(fit_rats_pool, pars_ppp)$summary)
 (ppp_no_pool <- summary(fit_rats_no_pool, pars_ppp)$summary)
 (ppp_hier <- summary(fit_rats_hier, pars_ppp)$summary)
@@ -278,8 +281,8 @@ post_test_stat_plot
 ```
 
 ## Model Comparison (WAIC)
-> Several measures including AIC, BIC, DIC, WAIC, LOOCV etc. Here we show WAIC. Dependence of the bias correction on the parameter uncertainty in the posterior is more explicit and is recommended by Gelman.
-"Compared to AIC and DIC, WAIC has the desirable property of averaging over the posterior distribution rather than conditioning on a point estimate. This is especially relevant in a predictive context, as WAIC is evaluating the predictions that are actually being used for new data in a Bayesian context."
+> Several measures include AIC, BIC, DIC, WAIC, LOOCV etc. Here we show WAIC. Dependence of the bias correction on the parameter uncertainty in the posterior is more explicit and is recommended by Gelman.
+"Compared to AIC and DIC, WAIC has the desirable property of averaging over the posterior distribution rather than conditioning on a point estimate. This is especially relevant in a predictive context, as WAIC is evaluating the predictions that are actually being used for new data in a Bayesian context." (Ch.7)
 
 $$
 \begin{aligned} \operatorname{lppd} &=\log \text { pointwise predictive density } \\ &=\log \prod_{i=1}^{n} p_{\text { post }}\left(y_{i}\right)=\sum_{i=1}^{n} \log \int p\left(y_{i} | \theta\right) p_{\text { post }}(\theta) d \theta \end{aligned}
@@ -311,49 +314,64 @@ log_lik_hier_logit <- extract_log_lik(fit_rats_hier_logit, merge_chains = TRUE)
 
 # Computation
 
-> Model is fitted through iterative simulation, Markov Chain Monte Carlo (MCMC), but the process impose following problems, which can result in misleading inference if not attended. Note) for more information on MCMC, please refer to [Bayes and Computation](https://github.com/StanKorea/events/blob/master/StanKoreaMeetup1_Seminar2_Bayes_and_Computation.pdf) slide from StanKorea Meetup1
+> Model is fitted through iterative simulation, Markov Chain Monte Carlo (MCMC), but the process impose following problems, which can result in misleading inference if not attended. For more information on MCMC, please refer to [Bayes and Computation](https://github.com/StanKorea/events/blob/master/StanKoreaMeetup1_Seminar2_Bayes_and_Computation.pdf) slide from StanKorea Meetup1.
 
 ## Problems
-> Two Problems
+Two problems need attention when using MCMC:
 
-1.Simulations may be unrepresentative of the target distribution if the iterations have not proceeded long enough
+1. Unrepresentative simulations 
 
-2.Within-sequence correlation
-simulation inference from correlated draws is generally less precise than from the same number of independent draws
+Simulations may be grossly unrepresentative of the target distribution if the iterations have not proceeded long enough.
+
+2. Within-sequence correlation
+
+Simulation inference from correlated draws is generally less precise than from the same number of independent draws.
 
 ![](../figs/fig_11_1.png)
 
 ## Solutions
 
-> Three Solutions
+Three solutions are suggested for the above problems:
 
-1. Design the simulation runs to allow eﬀective monitoring of convergence by simulating multiple sequences with starting points dispersed throughout parameter space (Figure 11.1a) 
+1. Multi chain with different starting points
 
-2. Monitor the convergence of all quantities of interest by comparing variation between and within simulated sequences until ‘within’ variation roughly equals ‘between’ variation (Figure 11.1b). Only when the distribution of each simulated sequence is close to the distribution of all the sequences mixed together can they all be approximating the target distribution. 
+Design the simulation runs to allow eﬀective monitoring of convergence by simulating multiple sequences with starting points dispersed throughout parameter space (Figure 11.1a). 
 
-3. if the simulation eﬃciency is unacceptably low the algorithm can be altered (Sections 12.1 and 12.2)
+2. Simulate until ‘within’ variation roughly equals ‘between’ variation
 
-In order to implement the solutions, 'warm-up' and 'thin' is used
+Monitor the convergence of all quantities of interest by comparing variation between and within simulated sequences until ‘within’ variation roughly equals ‘between’ variation (Figure 11.1b). Only when the distribution of each simulated sequence is close to the distribution of all the sequences mixed together can they all be approximating the target distribution. 
+
+3. Alter the algorithm
+if the simulation eﬃciency is unacceptably low the algorithm can be altered (Sections 12.1,12.2)
+
+In order to implement the solutions, 'warm-up' and 'thin' is used.
 
 ### Warm-up
 > practice of discarding early iterations in Markov chain simulation
 
 purpose: 
+
 - diminish the inﬂuence of the starting values
+
 - to make sure distributions of the simulated values θ_t are close to the target distribution, p(θ|y) for large enough t
 
 in Stan:
+
 - stan() > warmup = floor(iter/2) 
+
 - discard the first half as a default, but diﬀerent warm-up fractions can be appropriate depending on the context
 
 ### Thin
 > keep every kth simulation draw from each sequence
 
 purpose:
+
 - avoid the dependence of the iterations in each sequence
 
 in Stan:
+
 - stan() > thin = 1
+
 - if the sequences have reached approximate convergence, they can be directly used for inferences
 
 ## Checking for Convergence
@@ -404,7 +422,7 @@ data.frame(lags = alpha_acf[,1],
 ``` 
 
 
-# Appendices 
+# Appendix
 
 ## Source Code (R + stan)
 
@@ -434,5 +452,7 @@ kable(codes, align=c('c','l'), escape=F) %>%
   kable_styling(bootstrap_options = c("striped","bordered"), full_width = T, position = "center") %>%
   collapse_rows(valign = 'middle')
 ```
+
+This document is made based on Bob Carpenter's "Hierarchical Partial Pooling for Repeated Binary Trials" and StanKorea 1819 Winter BDA Study.
 
 <!-- ## Output (HMC samples) -->
